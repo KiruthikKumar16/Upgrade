@@ -51,13 +51,23 @@ class AppDateUtils {
     return List.generate(last.day, (i) => first.add(Duration(days: i)));
   }
 
+  static DateTime startOfWeek(DateTime date) {
+    return date.subtract(Duration(days: date.weekday - 1));
+  }
+
+  static bool isSameWeek(DateTime a, DateTime b) {
+    final startA = startOfWeek(DateTime(a.year, a.month, a.day));
+    final startB = startOfWeek(DateTime(b.year, b.month, b.day));
+    return isSameDay(startA, startB);
+  }
+
   static bool shouldCompleteToday(String frequency, String? frequencyConfig) {
     final now = DateTime.now();
     switch (frequency) {
       case 'daily':
         return true;
       case 'weekly':
-        return now.weekday == DateTime.monday;
+        return true; // Weekly habits can be done any day
       case 'custom':
         if (frequencyConfig == null) return true;
         final days = frequencyConfig

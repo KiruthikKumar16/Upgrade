@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/card_shell.dart';
 import '../../../domain/entities/upgrade_group.dart';
@@ -37,17 +36,6 @@ class UpgradeCard extends StatelessWidget {
         return 'Failed';
       default:
         return 'Active';
-    }
-  }
-
-  Color get _difficultyColor {
-    switch (upgrade.difficulty) {
-      case 'easy':
-        return AppColors.green;
-      case 'hard':
-        return AppColors.amber;
-      default:
-        return AppColors.blue;
     }
   }
 
@@ -261,138 +249,4 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _DifficultyBadge extends StatelessWidget {
-  final String difficulty;
-  final Color color;
 
-  const _DifficultyBadge({required this.difficulty, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        AppConstants.upgradeImpactLabels[difficulty] ?? difficulty,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
-      ),
-    );
-  }
-}
-
-class _ScoreBar extends StatelessWidget {
-  final double score;
-  final double cutoff;
-  final Color color;
-  final String status;
-
-  const _ScoreBar({
-    required this.score,
-    required this.cutoff,
-    required this.color,
-    required this.status,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final barColor = status == 'failed'
-        ? AppColors.red
-        : status == 'completed'
-            ? AppColors.green
-            : color;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          '${(score * 100).toStringAsFixed(0)}%',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: barColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
-              ),
-        ),
-        const SizedBox(height: 3),
-        SizedBox(
-          height: 6,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              return Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).dividerColor,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: score.clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: barColor,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: (width * cutoff.clamp(0.0, 1.0)) - 0.5,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 1,
-                      color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DaysRemainingChip extends StatelessWidget {
-  final DateTime endDate;
-
-  const _DaysRemainingChip({required this.endDate});
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final end = DateTime(endDate.year, endDate.month, endDate.day);
-    final remaining = end.difference(today).inDays;
-    final isOverdue = remaining < 0;
-    final label = isOverdue
-        ? 'Overdue'
-        : remaining == 0
-            ? 'Ends today'
-            : '$remaining d left';
-    final color = isOverdue ? AppColors.red : AppColors.blue;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.schedule_rounded, size: 12, color: color),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-      ],
-    );
-  }
-}

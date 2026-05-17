@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("androidx.appcompat:appcompat:1.1.0")
+    implementation("com.google.android.material:material:1.1.0")
+}

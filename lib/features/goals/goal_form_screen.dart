@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/card_shell.dart';
-import '../../core/utils/gamification_engine.dart';
 import '../../data/providers.dart';
 import '../../domain/entities/goal.dart';
 import '../../domain/entities/habit.dart';
@@ -174,6 +173,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Goal' : 'New Goal'),
+        automaticallyImplyLeading: false,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),

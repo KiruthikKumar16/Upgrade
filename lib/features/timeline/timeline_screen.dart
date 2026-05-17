@@ -48,7 +48,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> with AutomaticK
     final eventsAsync = ref.watch(timelineProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Timeline')),
+      appBar: AppBar(
+        title: const Text('Timeline'),
+        automaticallyImplyLeading: false,
+      ),
       body: Column(
         children: [
           SingleChildScrollView(

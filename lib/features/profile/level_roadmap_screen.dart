@@ -44,7 +44,10 @@ class LevelRoadmapScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your Journey')),
+      appBar: AppBar(
+        title: const Text('Level Roadmap'),
+        automaticallyImplyLeading: false,
+      ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),

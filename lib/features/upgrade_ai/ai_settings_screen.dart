@@ -68,7 +68,10 @@ class _AISettingsScreenState extends ConsumerState<AISettingsScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Settings')),
+      appBar: AppBar(
+        title: const Text('AI Settings'),
+        automaticallyImplyLeading: false,
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
         children: [

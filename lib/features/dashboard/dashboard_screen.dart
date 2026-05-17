@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_logo_icon.dart';
 import '../../core/widgets/app_avatar.dart';
-import '../../core/utils/gamification_engine.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/providers.dart';
 import '../../domain/entities/timeline_event.dart';
 import '../../domain/entities/upgrade_group.dart';
-import 'widgets/stats_header.dart';
 import 'widgets/today_habits_list.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -26,6 +23,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   bool _isFabExpanded = false;
   late final AnimationController _fabController;
   late final Animation<double> _expandAnimation;
+  late final PageController _upgradePageController;
+  int _selectedUpgradeIndex = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -41,12 +40,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       parent: _fabController,
       curve: Curves.easeOutBack,
     );
+    _upgradePageController = PageController(viewportFraction: 0.95);
     WidgetsBinding.instance.addPostFrameCallback((_) => _evaluateDue());
   }
 
   @override
   void dispose() {
     _fabController.dispose();
+    _upgradePageController.dispose();
     super.dispose();
   }
 
@@ -90,6 +91,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   SliverAppBar(
                     floating: true,
                     snap: true,
+                    automaticallyImplyLeading: false,
                     backgroundColor: theme.scaffoldBackgroundColor,
                     elevation: 0,
                     scrolledUnderElevation: 0,
@@ -176,6 +178,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                     AppAvatar(
                                       avatarData: profile?.avatarData,
                                       customAvatarPath: profile?.customAvatarPath,
+                                      avatarType: profile?.avatarType ?? 'notion',
                                       size: 36,
                                       onTap: () => context.push('/profile'),
                                     ),
@@ -207,11 +210,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           );
                         },
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.settings_rounded),
-                        onPressed: () => context.push('/settings'),
-                        tooltip: 'Settings',
-                      ),
                     ],
                   ),
                   SliverPadding(
@@ -222,18 +220,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         Consumer(
                           builder: (context, ref, child) {
                             final activeUpgrades = ref.watch(activeUpgradesProvider);
-                            if (activeUpgrades.isEmpty) return const SizedBox.shrink();
+                            if (activeUpgrades.isEmpty) {
+                              return const Column(
+                                children: [
+                                  TodayHabitsList(),
+                                  SizedBox(height: 24),
+                                ],
+                              );
+                            }
+
+                            // Ensure index is within bounds
+                            if (_selectedUpgradeIndex >= activeUpgrades.length) {
+                              _selectedUpgradeIndex = activeUpgrades.length - 1;
+                            }
+                            if (_selectedUpgradeIndex < 0) {
+                              _selectedUpgradeIndex = 0;
+                            }
+
+                            final selectedUpgrade = activeUpgrades[_selectedUpgradeIndex];
+
                             return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _ActiveUpgradesSection(upgrades: activeUpgrades),
+                                _ActiveUpgradesCarousel(
+                                  upgrades: activeUpgrades,
+                                  controller: _upgradePageController,
+                                  selectedIndex: _selectedUpgradeIndex,
+                                  onPageChanged: (index) {
+                                    setState(() => _selectedUpgradeIndex = index);
+                                  },
+                                ),
+                                const SizedBox(height: 24),
+                                TodayHabitsList(upgradeId: selectedUpgrade.id),
                                 const SizedBox(height: 24),
                               ],
                             );
                           },
                         ),
-
-                        const TodayHabitsList(),
-                        const SizedBox(height: 24),
 
                         Consumer(
                           builder: (context, ref, child) {
@@ -386,9 +409,18 @@ class _OptionLabel extends StatelessWidget {
   }
 }
 
-class _ActiveUpgradesSection extends StatelessWidget {
+class _ActiveUpgradesCarousel extends StatelessWidget {
   final List<UpgradeGroup> upgrades;
-  const _ActiveUpgradesSection({required this.upgrades});
+  final PageController controller;
+  final int selectedIndex;
+  final ValueChanged<int> onPageChanged;
+
+  const _ActiveUpgradesCarousel({
+    required this.upgrades,
+    required this.controller,
+    required this.selectedIndex,
+    required this.onPageChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -409,10 +441,57 @@ class _ActiveUpgradesSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Column(
-          children: upgrades.map((u) => _UpgradeCard(upgrade: u)).toList(),
+        SizedBox(
+          height: 160, // Fixed height for the carousel
+          child: PageView.builder(
+            controller: controller,
+            onPageChanged: onPageChanged,
+            itemCount: upgrades.length,
+            padEnds: false,
+            itemBuilder: (context, index) {
+              final upgrade = upgrades[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: _UpgradeCard(upgrade: upgrade),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(
+              upgrades.length,
+              (index) => _DotIndicator(
+                isActive: selectedIndex == index,
+              ),
+            ),
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _DotIndicator extends StatelessWidget {
+  final bool isActive;
+  const _DotIndicator({required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      height: 6,
+      width: isActive ? 18 : 6,
+      decoration: BoxDecoration(
+        color: isActive
+            ? theme.colorScheme.primary
+            : theme.colorScheme.primary.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(3),
+      ),
     );
   }
 }
@@ -439,7 +518,6 @@ class _UpgradeCard extends ConsumerWidget {
       onTap: () => GoRouter.of(context).go('/upgrades/${upgrade.id}'),
       child: Container(
         width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: theme.cardColor,
@@ -558,30 +636,7 @@ class _UpgradeCard extends ConsumerWidget {
   }
 }
 
-class _NotionTag extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _NotionTag({required this.label, required this.color});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: color.withValues(alpha: 0.12),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
 
 class _FlatProgressBar extends StatelessWidget {
   final double score;
@@ -680,14 +735,7 @@ class _RecentTimeline extends StatelessWidget {
       children: [
         Text('Recent Activity', style: theme.textTheme.headlineSmall),
         const SizedBox(height: 12),
-        ...display.asMap().entries.map((entry) {
-          final i = entry.key;
-          final event = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _TimelineCard(event: event),
-          );
-        }),
+        ...display.map((event) => _TimelineCard(event: event)),
       ],
     );
   }

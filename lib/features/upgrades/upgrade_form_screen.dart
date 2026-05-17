@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/card_shell.dart';
-import '../../core/utils/gamification_engine.dart';
 import '../../data/providers.dart';
 import '../../domain/entities/upgrade_group.dart';
 
@@ -197,7 +196,7 @@ class _UpgradeFormScreenState extends ConsumerState<UpgradeFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Upgrade' : 'New Upgrade'),
-        automaticallyImplyLeading: false, // Remove back arrow
+        automaticallyImplyLeading: false,
       ),
       body: Form(
         key: _formKey,

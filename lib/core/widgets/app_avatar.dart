@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 class AppAvatar extends StatelessWidget {
   final Map<String, int>? avatarData;
   final String? customAvatarPath;
+  final String avatarType; // 'notion' or 'custom'
   final double size;
   final VoidCallback? onTap;
   final bool showEditIcon;
@@ -14,6 +15,7 @@ class AppAvatar extends StatelessWidget {
     super.key,
     this.avatarData,
     this.customAvatarPath,
+    this.avatarType = 'notion',
     this.size = 40,
     this.onTap,
     this.showEditIcon = false,
@@ -24,7 +26,7 @@ class AppAvatar extends StatelessWidget {
     final theme = Theme.of(context);
     
     Widget avatarChild;
-    if (customAvatarPath != null && customAvatarPath!.isNotEmpty) {
+    if (avatarType == 'custom' && customAvatarPath != null && customAvatarPath!.isNotEmpty) {
       avatarChild = Image.file(
         File(customAvatarPath!),
         fit: BoxFit.cover,

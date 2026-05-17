@@ -5,7 +5,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/card_shell.dart';
-import '../../core/utils/gamification_engine.dart';
 import '../../core/utils/xp_calculator.dart';
 import '../../data/providers.dart';
 import '../../domain/entities/upgrade_group.dart';
@@ -30,15 +29,15 @@ class UpgradeDetailScreen extends ConsumerWidget {
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (err, _) => Scaffold(
-        appBar: AppBar(),
-        body: Center(child: Text('Error: $err')),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(automaticallyImplyLeading: false),
+        body: Center(child: Text('Error: $e')),
       ),
       data: (upgrades) {
         final upgrade = upgrades.where((u) => u.id == upgradeId).firstOrNull;
         if (upgrade == null) {
           return Scaffold(
-            appBar: AppBar(),
+            appBar: AppBar(automaticallyImplyLeading: false),
             body: const Center(child: Text('Upgrade not found')),
           );
         }
@@ -52,16 +51,24 @@ class UpgradeDetailScreen extends ConsumerWidget {
                 : liveScore;
 
         return Scaffold(
-          appBar: AppBar(
-            title: Text(upgrade.name),
-            actions: [
+      appBar: AppBar(
+        title: Text(upgrade.name),
+        automaticallyImplyLeading: false,
+        actions: [
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Edit',
                 onPressed: () => context.go('/upgrades/${upgrade.id}/edit'),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline),
+                icon: Icon(upgrade.archived
+                    ? Icons.unarchive_outlined
+                    : Icons.archive_outlined),
+                tooltip: upgrade.archived ? 'Unarchive' : 'Archive',
+                onPressed: () => _toggleArchive(context, ref, upgrade),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: AppColors.red),
                 tooltip: 'Delete',
                 onPressed: () => _confirmDelete(context, ref, upgrade),
               ),
@@ -131,6 +138,23 @@ class UpgradeDetailScreen extends ConsumerWidget {
     if (confirmed == true && context.mounted) {
       await ref.read(upgradesProvider.notifier).delete(upgrade.id);
       if (context.mounted) context.go('/upgrades');
+    }
+  }
+
+  Future<void> _toggleArchive(
+      BuildContext context, WidgetRef ref, UpgradeGroup upgrade) async {
+    await ref.read(upgradesProvider.notifier).toggleArchive(upgrade.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            upgrade.archived
+                ? 'Upgrade unarchived'
+                : 'Upgrade archived. You can find it in the Archived tab.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 }

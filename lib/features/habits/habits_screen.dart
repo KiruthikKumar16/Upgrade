@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/app_empty_state.dart';
@@ -74,6 +73,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> with AutomaticKeepA
                 onChanged: (v) => setState(() => _searchQuery = v),
               )
             : const Text(AppStrings.habitsTab),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),

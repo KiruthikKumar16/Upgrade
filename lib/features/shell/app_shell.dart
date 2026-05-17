@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/widgets/app_logo_icon.dart';
-import '../dashboard/dashboard_screen.dart';
-import '../habits/habits_screen.dart';
-import '../upgrades/upgrades_screen.dart';
-import '../timeline/timeline_screen.dart';
-import '../upgrade_ai/upgrade_ai_screen.dart';
 
 class AppShell extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -19,6 +15,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late final PageController _pageController;
   bool _isAnimating = false;
+  DateTime? _lastBackPress;
 
   void _onTap(int index) {
     final isCurrent = index == widget.navigationShell.currentIndex;
@@ -55,9 +52,18 @@ class _AppShellState extends State<AppShell> {
   }
 
   List<NavigationDestination> _destinations(BuildContext context) {
-    final iconColor = Theme.of(context).iconTheme.color ?? Colors.grey;
+    final theme = Theme.of(context);
+    final selectedColor = theme.colorScheme.primary;
+    final unselectedColor = theme.brightness == Brightness.dark 
+        ? const Color(0xFF5C5C5C) 
+        : const Color(0xFF9B9B9B);
+
     return [
-      NavigationDestination(icon: AppLogoIcon(size: 24, color: iconColor), label: 'Upgrades'),
+      NavigationDestination(
+        icon: AppLogoIcon(size: 24, color: unselectedColor),
+        selectedIcon: AppLogoIcon(size: 24, color: selectedColor),
+        label: 'Upgrades',
+      ),
       const NavigationDestination(icon: Icon(Icons.check_circle_outline_rounded), label: 'Habits'),
       const NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'Home'),
       const NavigationDestination(icon: Icon(Icons.smart_toy_rounded), label: 'Upgrade AI'),
@@ -66,9 +72,18 @@ class _AppShellState extends State<AppShell> {
   }
 
   List<NavigationRailDestination> _railDestinations(BuildContext context) {
-    final iconColor = Theme.of(context).iconTheme.color ?? Colors.grey;
+    final theme = Theme.of(context);
+    final selectedColor = theme.colorScheme.primary;
+    final unselectedColor = theme.brightness == Brightness.dark 
+        ? const Color(0xFF5C5C5C) 
+        : const Color(0xFF9B9B9B);
+
     return [
-      NavigationRailDestination(icon: AppLogoIcon(size: 24, color: iconColor), label: const Text('Upgrades')),
+      NavigationRailDestination(
+        icon: AppLogoIcon(size: 24, color: unselectedColor),
+        selectedIcon: AppLogoIcon(size: 24, color: selectedColor),
+        label: const Text('Upgrades'),
+      ),
       const NavigationRailDestination(icon: Icon(Icons.check_circle_outline_rounded), label: Text('Habits')),
       const NavigationRailDestination(icon: Icon(Icons.dashboard_rounded), label: Text('Home')),
       const NavigationRailDestination(icon: Icon(Icons.smart_toy_rounded), label: Text('Upgrade AI')),
@@ -132,12 +147,46 @@ class _AppShellState extends State<AppShell> {
       );
     }
 
-    return Scaffold(
-      body: content,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: _onTap,
-        destinations: _destinations(context),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        final currentIndex = widget.navigationShell.currentIndex;
+        // 2 is the index for 'Home' (Dashboard)
+        if (currentIndex != 2) {
+          _onTap(2);
+          return;
+        }
+
+        // If we are on Home, implement double tap to exit
+        final now = DateTime.now();
+        if (_lastBackPress == null || 
+            now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+          _lastBackPress = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Press back again to exit'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+        
+        // If double tapped within 2 seconds, we can pop (quit app)
+        // Since we can't easily trigger a system quit from here without 'canPop: true',
+        // we'll need to use SystemNavigator.pop() or similar if available, 
+        // but for now we'll allow the pop by setting canPop logic or just exiting.
+        // Actually, the best way with PopScope is to set canPop dynamically or use SystemNavigator.
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
+        body: content,
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: _onTap,
+          destinations: _destinations(context),
+        ),
       ),
     );
   }

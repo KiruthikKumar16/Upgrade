@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_logo_icon.dart';
@@ -86,20 +89,48 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _pickProfileImage() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-      );
-      if (result == null || result.files.single.path == null) return;
-      
-      setState(() {
-        _customAvatarPath = result.files.single.path;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: $e')),
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      try {
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: result.files.single.path!,
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Crop Profile Photo',
+              toolbarColor: AppColors.darkBg,
+              toolbarWidgetColor: AppColors.darkText,
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: 'Crop Profile Photo',
+              aspectRatioLockEnabled: true,
+              resetAspectRatioEnabled: false,
+            ),
+          ],
         );
+
+        if (croppedFile != null) {
+          final file = File(croppedFile.path);
+          final directory = await getApplicationDocumentsDirectory();
+          final fileName = 'pfp_${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}';
+          final savedImage = await file.copy(path.join(directory.path, fileName));
+          
+          setState(() {
+            _customAvatarPath = savedImage.path;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to pick image: $e')),
+          );
+        }
       }
     }
   }
@@ -424,14 +455,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _isLaunching = true);
 
     try {
-      final profile = UserProfile(
-        username: _usernameController.text.trim(),
-        avatarData: _avatarData,
-        customAvatarPath: _customAvatarPath,
-      );
-      // Wait for profile to save before proceeding
-      await ref.read(userProfileProvider.notifier).save(profile);
-
       final upgrade = UpgradeGroup(
         name: _upgradeNameController.text.trim(),
         difficulty: _upgradeDifficulty,
@@ -447,6 +470,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // Wait for upgrade to save
       await ref.read(upgradesProvider.notifier).save(upgrade);
 
+      // CRITICAL: Ensure habits are saved BEFORE the profile is saved.
+      // The router checks for hasProfileProvider to redirect away from onboarding.
+      // If profile is saved first, the app might redirect before habits are saved.
+      
       final List<Habit> habitsToSave = [];
       final List<UpgradeHabit> membershipsToSave = [];
 
@@ -475,6 +502,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await ref.read(habitsProvider.notifier).saveAll(habitsToSave);
       await ref.read(upgradeHabitsProvider.notifier).saveAll(membershipsToSave);
 
+      final profile = UserProfile(
+        username: _usernameController.text.trim(),
+        avatarData: _avatarData,
+        customAvatarPath: _customAvatarPath,
+        avatarType: _customAvatarPath != null ? 'custom' : 'notion',
+      );
+      
+      // Wait for profile to save - this is the signal to the router that onboarding is done
+      await ref.read(userProfileProvider.notifier).save(profile);
+
       // Re-load all providers to ensure state is fresh
       ref.invalidate(userProfileProvider);
       ref.invalidate(upgradesProvider);
@@ -482,14 +519,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ref.invalidate(upgradeHabitsProvider);
       
       // Wait for futures to complete
-      await ref.read(userProfileProvider.future);
-      await ref.read(upgradesProvider.future);
-      await ref.read(habitsProvider.future);
-      await ref.read(upgradeHabitsProvider.future);
+      await Future.wait([
+        ref.read(userProfileProvider.future),
+        ref.read(upgradesProvider.future),
+        ref.read(habitsProvider.future),
+        ref.read(upgradeHabitsProvider.future),
+      ]);
+
+      // Trigger achievements for onboarding creation
+      final engine = ref.read(gamificationEngineProvider);
+      await engine.checkHabitCreationAchievements();
+      await engine.checkUpgradeCreationAchievements();
 
       if (mounted) context.go('/launch');
-    } catch (_) {
-      if (mounted) setState(() => _isLaunching = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLaunching = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to launch: $e')),
+        );
+      }
     }
   }
 
@@ -627,7 +676,6 @@ class _SectionTitle extends StatelessWidget {
 
 class _PrimaryButton extends StatelessWidget {
   final String label;
-  final IconData? icon;
   final Widget? iconWidget;
   final bool enabled;
   final bool loading;
@@ -636,7 +684,6 @@ class _PrimaryButton extends StatelessWidget {
 
   const _PrimaryButton({
     required this.label,
-    this.icon,
     this.iconWidget,
     this.enabled = true,
     this.loading = false,
@@ -669,9 +716,6 @@ class _PrimaryButton extends StatelessWidget {
                 children: [
                   if (iconWidget != null) ...[
                     iconWidget!,
-                    const SizedBox(width: 8),
-                  ] else if (icon != null) ...[
-                    Icon(icon, size: 20),
                     const SizedBox(width: 8),
                   ],
                   Text(label,

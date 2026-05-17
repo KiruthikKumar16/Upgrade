@@ -72,14 +72,14 @@ If no actions are needed, return empty array for proposedActions.
     };
 
     final supported = await _listSupportedGenerateModels(config.apiKey);
-    final candidates = <String>[
+    final candidates = <String>{
       if (supported.contains(config.model)) config.model,
       ..._fallbackModels.where(supported.contains),
       if (supported.isEmpty) ...[
         config.model,
         ..._fallbackModels.where((m) => m != config.model),
       ],
-    ].toSet().toList();
+    }.toList();
 
     final failures = <String>[];
 

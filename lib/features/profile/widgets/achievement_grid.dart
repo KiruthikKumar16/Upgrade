@@ -12,6 +12,15 @@ class AchievementGrid extends StatelessWidget {
     final definitions = Achievement.definitions;
     final unlockedKeys = unlocked.map((a) => a.key).toSet();
 
+    // Sort: unlocked first, then locked
+    final sortedDefinitions = [...definitions]..sort((a, b) {
+        final aUnlocked = unlockedKeys.contains(a.key);
+        final bUnlocked = unlockedKeys.contains(b.key);
+        if (aUnlocked && !bUnlocked) return -1;
+        if (!aUnlocked && bUnlocked) return 1;
+        return 0;
+      });
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -21,9 +30,9 @@ class AchievementGrid extends StatelessWidget {
         crossAxisSpacing: 12,
         childAspectRatio: 0.75,
       ),
-      itemCount: definitions.length,
+      itemCount: sortedDefinitions.length,
       itemBuilder: (context, index) {
-        final def = definitions[index];
+        final def = sortedDefinitions[index];
         final isUnlocked = unlockedKeys.contains(def.key);
         return _AchievementTile(
           definition: def,

@@ -28,7 +28,10 @@ class SettingsScreen extends ConsumerWidget {
     final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        automaticallyImplyLeading: false,
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [

@@ -23,20 +23,19 @@ class HabitDetailScreen extends ConsumerWidget {
     final habitsAsync = ref.watch(habitsProvider);
     final entriesAsync = ref.watch(habitEntriesProvider);
     final upgrades = ref.watch(upgradesProvider).valueOrNull ?? [];
-    final theme = Theme.of(context);
 
     return habitsAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(automaticallyImplyLeading: false),
         body: Center(child: Text('Error: $e')),
       ),
       data: (habits) {
         final habit = habits.where((h) => h.id == habitId).firstOrNull;
         if (habit == null) {
           return Scaffold(
-            appBar: AppBar(),
+            appBar: AppBar(automaticallyImplyLeading: false),
             body: const Center(child: Text('Habit not found')),
           );
         }
@@ -60,6 +59,7 @@ class HabitDetailScreen extends ConsumerWidget {
         return Scaffold(
           appBar: AppBar(
             title: Text(habit.name),
+            automaticallyImplyLeading: false,
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit_rounded),

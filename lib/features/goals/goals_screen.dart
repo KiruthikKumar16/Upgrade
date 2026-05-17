@@ -24,7 +24,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Goals'),
-        centerTitle: false,
+        automaticallyImplyLeading: false,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go('/goals/new'),

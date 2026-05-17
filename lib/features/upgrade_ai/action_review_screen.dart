@@ -81,7 +81,10 @@ class _AIActionReviewScreenState extends State<AIActionReviewScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Review: ${widget.title}')),
+      appBar: AppBar(
+        title: Text('Review: ${widget.title}'),
+        automaticallyImplyLeading: false,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

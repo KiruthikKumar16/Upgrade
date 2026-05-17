@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -104,6 +105,10 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 
 // --- User Profile ---
 
+final hasProfileProvider = Provider<bool>((ref) {
+  return ref.watch(userProfileProvider).valueOrNull != null;
+});
+
 final userProfileProvider = AsyncNotifierProvider<UserProfileNotifier, UserProfile?>(() {
   return UserProfileNotifier();
 });
@@ -124,7 +129,7 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
   Future<void> addXp(int xp) async {
     final current = state.valueOrNull;
     if (current == null) return;
-    final newTotalXp = current.totalXp + xp;
+    final newTotalXp = max(0, current.totalXp + xp);
     final newLevel = XpCalculator.levelFromTotalXp(newTotalXp);
     final newRank = AppConstants.getRank(newLevel);
     final updated = current.copyWith(
@@ -246,6 +251,16 @@ class UpgradesNotifier extends AsyncNotifier<List<UpgradeGroup>> {
     ref.invalidateSelf();
     await future;
   }
+
+  Future<void> toggleArchive(String id) async {
+    final repo = await ref.read(upgradeRepoProvider.future);
+    final upgrade = await repo.getUpgrade(id);
+    if (upgrade != null) {
+      await repo.saveUpgrade(upgrade.copyWith(archived: !upgrade.archived));
+      ref.invalidateSelf();
+      await future;
+    }
+  }
 }
 
 // --- Upgrade Habits (memberships) ---
@@ -355,8 +370,21 @@ final gamificationEngineProvider = Provider<GamificationEngine>((ref) {
 final todayHabitsProvider = Provider<List<Habit>>((ref) {
   final habitsAsync = ref.watch(habitsProvider);
   final habits = habitsAsync.valueOrNull ?? [];
+  final weekEntries = ref.watch(thisWeekEntriesProvider);
+  final todayEntries = ref.watch(todayEntriesProvider);
+  
+  final completedThisWeekIds = weekEntries.where((e) => e.completed).map((e) => e.habitId).toSet();
+  final completedTodayIds = todayEntries.where((e) => e.completed).map((e) => e.habitId).toSet();
+
   return habits.where((h) {
     if (h.archived) return false;
+    
+    if (h.frequency == 'weekly') {
+      final doneThisWeek = completedThisWeekIds.contains(h.id);
+      final doneToday = completedTodayIds.contains(h.id);
+      return !doneThisWeek || doneToday;
+    }
+    
     return AppDateUtils.shouldCompleteToday(h.frequency, h.frequencyConfig);
   }).toList();
 });
@@ -369,12 +397,29 @@ final todayEntriesProvider = Provider<List<HabitEntry>>((ref) {
   ).toList() ?? [];
 });
 
+final thisWeekEntriesProvider = Provider<List<HabitEntry>>((ref) {
+  final entries = ref.watch(habitEntriesProvider);
+  final now = DateTime.now();
+  return entries.valueOrNull?.where((e) =>
+    AppDateUtils.isSameWeek(e.date, now)
+  ).toList() ?? [];
+});
+
 final todayCompletionProvider = Provider<double>((ref) {
   final habits = ref.watch(todayHabitsProvider);
-  final entries = ref.watch(todayEntriesProvider);
+  final todayEntries = ref.watch(todayEntriesProvider);
+  final weekEntries = ref.watch(thisWeekEntriesProvider);
+  
   if (habits.isEmpty) return 0.0;
-  final completedIds = entries.where((e) => e.completed).map((e) => e.habitId).toSet();
-  final completed = habits.where((h) => completedIds.contains(h.id)).length;
+  
+  final completedTodayIds = todayEntries.where((e) => e.completed).map((e) => e.habitId).toSet();
+  final completedThisWeekIds = weekEntries.where((e) => e.completed).map((e) => e.habitId).toSet();
+  
+  final completed = habits.where((h) {
+    if (h.frequency == 'weekly') return completedThisWeekIds.contains(h.id);
+    return completedTodayIds.contains(h.id);
+  }).length;
+  
   return completed / habits.length;
 });
 

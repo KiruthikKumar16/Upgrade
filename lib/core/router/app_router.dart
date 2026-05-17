@@ -21,13 +21,23 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/profile/level_roadmap_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
+class RouterListenable extends ChangeNotifier {
+  final Ref _ref;
+  RouterListenable(this._ref) {
+    _ref.listen(hasProfileProvider, (prev, next) {
+      if (prev != next) notifyListeners();
+    });
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final userProfile = ref.watch(userProfileProvider);
+  final listenable = RouterListenable(ref);
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: listenable,
     redirect: (context, state) {
-      final hasProfile = userProfile.valueOrNull != null;
+      final hasProfile = ref.read(hasProfileProvider);
       final isOnboarding = state.matchedLocation == '/onboarding';
 
       if (!hasProfile && !isOnboarding) return '/onboarding';

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_logo_icon.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/utils/gamification_engine.dart';
 import '../../data/providers.dart';
 import '../../domain/entities/habit.dart';
 
@@ -167,7 +166,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Habit' : 'New Habit'),
-        automaticallyImplyLeading: false, // Remove back arrow
+        automaticallyImplyLeading: false,
       ),
       body: upgrades.isEmpty
           ? Center(
@@ -296,7 +295,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                   const SizedBox(height: 16),
 
                   DropdownButtonFormField<String>(
-                    value: _upgradeId,
+                    initialValue: _upgradeId,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Upgrade *'),
                     validator: (v) =>
@@ -381,7 +380,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     Map<String, Color>? colorMap,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       decoration: InputDecoration(labelText: label),
       items: items.map((item) {

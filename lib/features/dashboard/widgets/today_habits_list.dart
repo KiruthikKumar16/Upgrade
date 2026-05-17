@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_logo_icon.dart';
 import '../../../core/widgets/card_shell.dart';
-import '../../../core/widgets/async_value_widget.dart';
 import '../../../core/widgets/app_empty_state.dart';
-import '../../../core/utils/gamification_engine.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../data/providers.dart';
 import '../../../domain/entities/habit.dart';
+import '../../../domain/entities/upgrade_group.dart';
 
 class TodayHabitsList extends ConsumerWidget {
-  const TodayHabitsList({super.key});
+  final String? upgradeId;
+  const TodayHabitsList({super.key, this.upgradeId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habitsAsync = ref.watch(habitsProvider);
-    final entries = ref.watch(todayEntriesProvider);
+    final todayEntries = ref.watch(todayEntriesProvider);
+    final weekEntries = ref.watch(thisWeekEntriesProvider);
     final allUpgrades = ref.watch(upgradesProvider).valueOrNull ?? [];
     final theme = Theme.of(context);
 
@@ -30,13 +30,41 @@ class TodayHabitsList extends ConsumerWidget {
       ),
       error: (e, _) => const SizedBox.shrink(),
       data: (allHabits) {
+        final upgradeMap = <String, UpgradeGroup>{};
+        for (final u in allUpgrades) {
+          upgradeMap[u.id] = u;
+        }
+
+        final completedTodayIds = todayEntries.where((e) => e.completed).map((e) => e.habitId).toSet();
+        final completedThisWeekIds = weekEntries.where((e) => e.completed).map((e) => e.habitId).toSet();
+
         // Filter habits for today directly from allHabits
         final todayHabits = allHabits.where((h) {
           if (h.archived) return false;
+          if (upgradeId != null && h.upgradeId != upgradeId) return false;
+          
+          // Also hide habits if their parent upgrade is archived
+          final parentUpgrade = upgradeMap[h.upgradeId];
+          if (parentUpgrade != null && parentUpgrade.archived) return false;
+          
+          if (h.frequency == 'weekly') {
+            // Weekly habits show up until they are completed this week
+            // Or if they were completed today
+            final doneThisWeek = completedThisWeekIds.contains(h.id);
+            final doneToday = completedTodayIds.contains(h.id);
+            return !doneThisWeek || doneToday;
+          }
+          
           return AppDateUtils.shouldCompleteToday(h.frequency, h.frequencyConfig);
         }).toList();
 
-        final allActiveHabits = allHabits.where((h) => !h.archived).toList();
+        final allActiveHabits = allHabits.where((h) {
+          if (h.archived) return false;
+          if (upgradeId != null && h.upgradeId != upgradeId) return false;
+          final parentUpgrade = upgradeMap[h.upgradeId];
+          if (parentUpgrade != null && parentUpgrade.archived) return false;
+          return true;
+        }).toList();
 
         if (allActiveHabits.isEmpty) {
           return const AppEmptyState(
@@ -48,50 +76,58 @@ class TodayHabitsList extends ConsumerWidget {
 
         final habitsToShow = todayHabits.isNotEmpty ? todayHabits : allActiveHabits;
         final isShowingAll = todayHabits.isEmpty && allActiveHabits.isNotEmpty;
-
-        final completedIds = entries.where((e) => e.completed).map((e) => e.habitId).toSet();
-        final upgradeMap = <String, ({String name, int color})>{};
-        for (final u in allUpgrades) {
-          upgradeMap[u.id] = (name: u.name, color: u.color);
-        }
-
+        
+        // Use weekEntries for weekly habits and todayEntries for others to determine completion
+        final completedCount = habitsToShow.where((h) {
+          if (h.frequency == 'weekly') return completedThisWeekIds.contains(h.id);
+          return completedTodayIds.contains(h.id);
+        }).length;
+        
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Text(
-                  isShowingAll ? "Your Habits" : "Today's Habits",
+                  isShowingAll ? "Active Habits" : "Today's Habits",
                   style: theme.textTheme.headlineSmall,
                 ),
                 const Spacer(),
-                if (!isShowingAll)
-                  Text(
-                    '${completedIds.length}/${todayHabits.length}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                Text(
+                  '$completedCount/${habitsToShow.length}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: completedCount == habitsToShow.length && habitsToShow.isNotEmpty 
+                      ? AppColors.green 
+                      : null,
                   ),
+                ),
               ],
             ),
             if (isShowingAll)
               Padding(
                 padding: const EdgeInsets.only(top: 4, bottom: 12),
                 child: Text(
-                  "No habits scheduled for today, but here's your list:",
+                  "No habits scheduled for today. Showing all active habits:",
                   style: theme.textTheme.bodySmall,
                 ),
               )
             else
               const SizedBox(height: 12),
             ...habitsToShow.asMap().entries.map((entry) {
+              final index = entry.key;
               final habit = entry.value;
-              final isDone = completedIds.contains(habit.id);
+              
+              final isDone = habit.frequency == 'weekly' 
+                ? completedThisWeekIds.contains(habit.id)
+                : completedTodayIds.contains(habit.id);
+                
               final upgradeInfo = upgradeMap[habit.upgradeId];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _HabitCard(
                   key: ValueKey('today-habit-${habit.id}'),
+                  index: index + 1,
                   habit: habit,
                   isDone: isDone,
                   upgradeName: upgradeInfo?.name,
@@ -107,6 +143,7 @@ class TodayHabitsList extends ConsumerWidget {
 }
 
 class _HabitCard extends ConsumerWidget {
+  final int index;
   final Habit habit;
   final bool isDone;
   final String? upgradeName;
@@ -114,6 +151,7 @@ class _HabitCard extends ConsumerWidget {
 
   const _HabitCard({
     super.key,
+    required this.index,
     required this.habit,
     required this.isDone,
     this.upgradeName,
@@ -159,7 +197,7 @@ class _HabitCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  habit.name,
+                  '$index. ${habit.name}',
                   style: theme.textTheme.titleLarge?.copyWith(
                     decoration: isDone
                         ? TextDecoration.lineThrough
@@ -206,14 +244,17 @@ class _HabitCard extends ConsumerWidget {
   }
 
   Future<void> _toggleCompletion(BuildContext context, WidgetRef ref) async {
-    final entries = ref.read(todayEntriesProvider);
+    final todayEntries = ref.read(todayEntriesProvider);
+    final weekEntries = ref.read(thisWeekEntriesProvider);
 
     if (isDone) {
-      final entry = entries.firstWhere(
-        (e) => e.habitId == habit.id && e.completed,
-      );
+      // Find the entry that marks it as done
+      final entry = habit.frequency == 'weekly'
+        ? weekEntries.firstWhere((e) => e.habitId == habit.id && e.completed)
+        : todayEntries.firstWhere((e) => e.habitId == habit.id && e.completed);
+        
       HapticFeedback.lightImpact();
-      await ref.read(habitEntriesProvider.notifier).delete(entry.id);
+      await ref.read(gamificationEngineProvider).uncompleteHabit(habit, entry.id);
     } else {
       HapticFeedback.mediumImpact();
       await ref.read(gamificationEngineProvider).completeHabit(habit);
@@ -225,9 +266,8 @@ class _HabitCard extends ConsumerWidget {
 class _Tag extends StatelessWidget {
   final String label;
   final Color color;
-  final IconData? icon;
   final Widget? iconWidget;
-  const _Tag({required this.label, required this.color, this.icon, this.iconWidget});
+  const _Tag({required this.label, required this.color, this.iconWidget});
 
   @override
   Widget build(BuildContext context) {
@@ -242,9 +282,6 @@ class _Tag extends StatelessWidget {
         children: [
           if (iconWidget != null) ...[
             iconWidget!,
-            const SizedBox(width: 3),
-          ] else if (icon != null) ...[
-            Icon(icon, size: 10, color: color),
             const SizedBox(width: 3),
           ],
           Flexible(

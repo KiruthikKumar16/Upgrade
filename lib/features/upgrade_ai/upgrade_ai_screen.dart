@@ -91,23 +91,28 @@ class _UpgradeAIScreenState extends ConsumerState<UpgradeAIScreen> with Automati
       setState(() => _error = 'Set your Gemini API key to start chatting with Upgrade AI.');
       return;
     }
+    
+    // Create the message first
+    final userMessage = AIChatMessage(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      role: AIMessageRole.user,
+      content: cleaned,
+      createdAt: DateTime.now(),
+    );
+
     setState(() {
       _setSendingState(true);
       _error = null;
-      _messages.add(
-        AIChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          role: AIMessageRole.user,
-          content: cleaned,
-          createdAt: DateTime.now(),
-        ),
-      );
+      _messages.add(userMessage);
     });
     _scrollToBottom();
 
     try {
       final orchestrator = await ref.read(coachOrchestratorProvider.future);
       final response = await orchestrator.sendUserMessage(cleaned);
+      
+      if (!mounted) return;
+      
       setState(() {
         _messages.add(
           AIChatMessage(
@@ -122,12 +127,13 @@ class _UpgradeAIScreenState extends ConsumerState<UpgradeAIScreen> with Automati
           ..addAll(response.proposedActions);
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
       if (mounted) {
         setState(() => _setSendingState(false));
+        _scrollToBottom();
       }
-      _scrollToBottom();
     }
   }
 
@@ -362,6 +368,7 @@ class _UpgradeAIScreenState extends ConsumerState<UpgradeAIScreen> with Automati
     final profile = ref.watch(userProfileProvider).valueOrNull;
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         titleSpacing: 8,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,6 +521,7 @@ class _UpgradeAIScreenState extends ConsumerState<UpgradeAIScreen> with Automati
                           AppAvatar(
                             avatarData: profile?.avatarData,
                             customAvatarPath: profile?.customAvatarPath,
+                            avatarType: profile?.avatarType ?? 'notion',
                             size: 28,
                           ),
                         ],

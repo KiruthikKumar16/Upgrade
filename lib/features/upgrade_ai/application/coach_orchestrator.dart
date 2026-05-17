@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import '../../../core/utils/gamification_engine.dart';
 import '../../../data/providers.dart';
 import '../../../domain/entities/goal.dart';
 import '../../../domain/entities/habit.dart';

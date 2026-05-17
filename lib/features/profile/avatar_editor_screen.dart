@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/card_shell.dart';
 import '../../core/widgets/notion_avatar_display.dart';
-import '../../data/providers.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../core/constants/app_constants.dart';
 
@@ -31,11 +30,12 @@ class _AvatarEditorScreenState extends ConsumerState<AvatarEditorScreen> {
     });
   }
 
-  Future<void> _save() async {
-    await ref.read(userProfileProvider.notifier).save(
-          widget.profile.copyWith(avatarData: Map<String, int>.from(_avatarData)),
-        );
-    if (mounted) Navigator.of(context).pop();
+  void _save() {
+    final updatedProfile = widget.profile.copyWith(
+      avatarData: Map<String, int>.from(_avatarData),
+      avatarType: 'notion',
+    );
+    Navigator.of(context).pop(updatedProfile);
   }
 
   @override
@@ -48,25 +48,31 @@ class _AvatarEditorScreenState extends ConsumerState<AvatarEditorScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Change avatar'),
+        title: const Text('Customize Avatar'),
+        automaticallyImplyLeading: false,
         actions: [
           TextButton(
             onPressed: _save,
-            child: const Text('Save'),
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Column(
         children: [
-          Center(
-            child: CardShell(
-              padding: const EdgeInsets.all(24),
+          // Fixed Preview Section
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              border: Border(bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.1))),
+            ),
+            child: Center(
               child: Column(
                 children: [
                   NotionAvatarDisplay(
                     avatarData: _avatarData,
-                    size: 120,
+                    size: 160,
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -81,54 +87,70 @@ class _AvatarEditorScreenState extends ConsumerState<AvatarEditorScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Customize',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
+
+          // Scrollable Customization Section
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  'Customize',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...partOrder.map((part) {
+                  final max = ranges[part] ?? 1;
+                  final label = AppConstants.avatarPartLabels[part] ?? part;
+                  return _buildSlider(label, part, max);
+                }),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          ...partOrder.map((part) {
-            final max = ranges[part] ?? 1;
-            final value = _avatarData[part] ?? 0;
-            final label = AppConstants.avatarPartLabels[part] ?? part;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: CardShell(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(label, style: theme.textTheme.bodyMedium),
-                        Text(
-                          '${value + 1} / $max',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                    Slider(
-                      value: value.toDouble(),
-                      min: 0,
-                      max: (max - 1).toDouble(),
-                      divisions: max > 1 ? max - 1 : 1,
-                      onChanged: (v) {
-                        setState(() {
-                          _avatarData = Map.from(_avatarData);
-                          _avatarData[part] = v.round();
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
         ],
       ),
     );
   }
-}
+
+  Widget _buildSlider(String label, String key, int max) {
+    final theme = Theme.of(context);
+    final value = _avatarData[key] ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: CardShell(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color)),
+              Text(
+                '${value + 1} / $max',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: value.toDouble(),
+            min: 0,
+            max: (max - 1).toDouble(),
+            divisions: max > 1 ? max - 1 : 1,
+            onChanged: (v) {
+              setState(() {
+                _avatarData = Map.from(_avatarData);
+                _avatarData[key] = v.round();
+              });},
+             ),
+           ],
+         ),
+       ),
+     );
+   }
+ }

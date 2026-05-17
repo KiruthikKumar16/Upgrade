@@ -6,6 +6,7 @@ class UserProfile {
   final String username;
   final Map<String, int> avatarData;
   final String? customAvatarPath;
+  final String avatarType; // 'notion' or 'custom'
   final int level;
   final int totalXp;
   final int currentStreak;
@@ -53,6 +54,7 @@ class UserProfile {
     required this.username,
     Map<String, int>? avatarData,
     this.customAvatarPath,
+    this.avatarType = 'notion',
     this.level = 1,
     this.totalXp = 0,
     this.currentStreak = 0,
@@ -67,6 +69,8 @@ class UserProfile {
     String? username,
     Map<String, int>? avatarData,
     String? customAvatarPath,
+    bool clearCustomAvatar = false,
+    String? avatarType,
     int? level,
     int? totalXp,
     int? currentStreak,
@@ -77,7 +81,8 @@ class UserProfile {
       id: id,
       username: username ?? this.username,
       avatarData: avatarData ?? this.avatarData,
-      customAvatarPath: customAvatarPath ?? this.customAvatarPath,
+      customAvatarPath: clearCustomAvatar ? null : (customAvatarPath ?? this.customAvatarPath),
+      avatarType: avatarType ?? this.avatarType,
       level: level ?? this.level,
       totalXp: totalXp ?? this.totalXp,
       currentStreak: currentStreak ?? this.currentStreak,
@@ -92,6 +97,7 @@ class UserProfile {
         'username': username,
         'avatarData': avatarData,
         'customAvatarPath': customAvatarPath,
+        'avatarType': avatarType,
         'level': level,
         'totalXp': totalXp,
         'currentStreak': currentStreak,
@@ -100,25 +106,17 @@ class UserProfile {
         'createdAt': createdAt.toIso8601String(),
       };
 
-  factory UserProfile.fromJson(Map<String, dynamic> json) {
-    Map<String, int>? avatar;
-    if (json['avatarData'] is Map) {
-      avatar = (json['avatarData'] as Map).map(
-        (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+  factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
+        id: json['id'],
+        username: json['username'],
+        avatarData: Map<String, int>.from(json['avatarData']),
+        customAvatarPath: json['customAvatarPath'],
+        avatarType: json['avatarType'] ?? (json['customAvatarPath'] != null ? 'custom' : 'notion'),
+        level: json['level'],
+        totalXp: json['totalXp'],
+        currentStreak: json['currentStreak'],
+        longestStreak: json['longestStreak'],
+        rank: json['rank'],
+        createdAt: DateTime.parse(json['createdAt']),
       );
-    }
-
-    return UserProfile(
-      id: json['id'] as String,
-      username: json['username'] as String,
-      avatarData: avatar,
-      customAvatarPath: json['customAvatarPath'] as String?,
-      level: json['level'] as int? ?? 1,
-      totalXp: json['totalXp'] as int? ?? 0,
-      currentStreak: json['currentStreak'] as int? ?? 0,
-      longestStreak: json['longestStreak'] as int? ?? 0,
-      rank: json['rank'] as String? ?? 'Novice',
-      createdAt: DateTime.parse(json['createdAt'] as String),
-    );
-  }
 }

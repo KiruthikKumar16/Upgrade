@@ -49,7 +49,32 @@ class GamificationEngine {
       await _ref.read(userProfileProvider.notifier).addXp(totalXp);
     }
 
+    await _checkAchievement('first_completion');
     await _checkStreakAchievements(newStreak);
+    await _updatePlayerStreak();
+  }
+
+  Future<void> uncompleteHabit(Habit habit, String entryId) async {
+    // Calculate how much XP was awarded for this habit today
+    final currentStreak = await _calculateStreak(habit.id);
+    final xpBase = AppConstants.xpByDifficulty[habit.difficulty] ?? 10;
+    final streakBonus = (xpBase * (min(currentStreak - 1, 10) * 0.1)).floor();
+    final totalXpAwarded = xpBase + streakBonus;
+
+    // Delete the entry
+    await _ref.read(habitEntriesProvider.notifier).delete(entryId);
+
+    // Subtract the XP
+    await _ref.read(userProfileProvider.notifier).addXp(-totalXpAwarded);
+
+    // Update streak for the habit
+    final newStreak = await _calculateStreak(habit.id);
+    final updatedHabit = habit.copyWith(
+      currentStreak: newStreak,
+      // Note: longestStreak doesn't decrease
+    );
+    await _ref.read(habitsProvider.notifier).save(updatedHabit);
+
     await _updatePlayerStreak();
   }
 

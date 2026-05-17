@@ -10,17 +10,19 @@ class AppLogoIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? IconTheme.of(context).color;
+    
     return Image.asset(
       'assets/icons/icon_no_bg.png',
       width: size,
       height: size,
       fit: BoxFit.contain,
-      color: color,
-      colorBlendMode: color != null ? BlendMode.srcIn : null,
-      errorBuilder: (_, __, ___) => Icon(
+      color: effectiveColor,
+      colorBlendMode: effectiveColor != null ? BlendMode.srcIn : null,
+      errorBuilder: (_, _, _) => Icon(
         Icons.rocket_launch_rounded,
         size: size,
-        color: color ?? Colors.white,
+        color: effectiveColor ?? Colors.white,
       ),
     );
   }
